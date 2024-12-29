@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tags:
-        description: 'Set Tags Name'
+        description: 'Set Tags Name' # 태그 설정
         required: true
         default: master
 
@@ -11,9 +11,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      release: ${{ steps.set-version.outputs.VERSION_NAME }}
+      release: ${{ steps.set-version.outputs.VERSION_NAME }} # steps의 set-version id를 가진 step의 outputs한 VERSION_NAME 리턴 -> 다른 job에서 해당하는 release에 접근할 수 있도록 함.
     steps:
-      - id: set-version # v1.0.0 -> v1-0-0
+      - id: set-version # v1.0.0 -> v1-0-0 버전 명 형식을 바꿔주는 과정
         run: |
           echo "VERSION_NAME=$(echo "${{ github.event.inputs.tags }}" | sed "s/\./\-/g")" >> $GITHUB_OUTPUT
 
@@ -48,23 +48,4 @@ jobs:
           name: cicd-study-application # cicd-study-application.zip
           path: build/libs/cicd-study-${{ steps.set-version.outputs.VERSION_NAME }}.jar
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs:
-      - build
-
-    steps:
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: cicd-study-application # cicd-study-application.zip
-          path: build/libs/
-
-      - name: Deploy to EC2
-        run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-          scp -i private_key.pem -o StrictHostKeyChecking=no build/libs/cicd-study-${{ needs.build.outputs.release }}.jar ${{ secrets.EC2_USER_NAME }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER_NAME }}/cicd-study-${{ needs.build.outputs.release }}.jar
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER_NAME }}@${{ secrets.EC2_HOST }} "pgrep java | xargs kill -9; nohup java -jar /home/${{ secrets.EC2_USER_NAME }}/cicd-study-${{ needs.build.outputs.release }}.jar > app.log 2>&1 &"
-          rm -f private_key.pem
 
